@@ -20,7 +20,7 @@ public class ProfileRepository {
             "Plano, TX",
             "saiakash5@gmail.com",
             "https://www.linkedin.com/in/akashkuthuru/",
-            "Backend developer with 6+ years of experience designing and building resilient financial "
+            "Backend developer with 7+ years of experience designing and building resilient financial "
                     + "and insurance applications on Java, Spring Boot, and AWS.",
             List.of(
                     new Job(

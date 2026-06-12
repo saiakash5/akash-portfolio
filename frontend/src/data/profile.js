@@ -12,9 +12,9 @@ export const profile = {
   linkedin: "https://www.linkedin.com/in/akashkuthuru/",
   github: "https://github.com/akashkuthuru",
   summary:
-    "Backend developer with 6+ years of experience designing and building resilient financial and insurance applications on Java, Spring Boot, and AWS — currently expanding into Python and modern frontend development.",
+    "Backend developer with 7+ years of experience designing and building resilient financial and insurance applications on Java, Spring Boot, and AWS — currently expanding into Python and modern frontend development.",
   // Short facts shown as chips under the intro. Add/remove freely.
-  facts: ["6+ years experience", "AWS Certified Developer", "Plano, TX"],
+  facts: ["7+ years experience", "AWS Certified Developer", "Plano, TX"],
 };
 
 export const experience = [
