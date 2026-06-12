@@ -7,6 +7,23 @@ variable "vpc_id" { type = string }
 variable "subnet_ids" { type = list(string) }
 variable "security_group_id" { type = string }
 
+# When true, port 80 redirects to 443 and routing rules attach to the
+# HTTPS listener. Kept as a separate static flag (not derived from the
+# cert ARN) because count cannot depend on values unknown until apply.
+variable "enable_https" {
+  type    = bool
+  default = false
+}
+
+variable "certificate_arn" {
+  type    = string
+  default = null
+}
+
+locals {
+  https_enabled = var.enable_https
+}
+
 resource "aws_lb" "this" {
   name               = var.name
   internal           = false
@@ -50,8 +67,41 @@ resource "aws_lb_listener" "http" {
   port              = 80
   protocol          = "HTTP"
 
-  # TODO: switch to 443 + ACM certificate once the domain is registered,
-  # and make this listener a redirect to HTTPS.
+  dynamic "default_action" {
+    for_each = local.https_enabled ? [1] : []
+    content {
+      type = "redirect"
+
+      redirect {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = local.https_enabled ? [] : [1]
+    content {
+      type = "fixed-response"
+
+      fixed_response {
+        content_type = "application/json"
+        message_body = "{\"error\":\"not found\"}"
+        status_code  = "404"
+      }
+    }
+  }
+}
+
+resource "aws_lb_listener" "https" {
+  count             = local.https_enabled ? 1 : 0
+  load_balancer_arn = aws_lb.this.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = var.certificate_arn
+
   default_action {
     type = "fixed-response"
 
@@ -63,8 +113,12 @@ resource "aws_lb_listener" "http" {
   }
 }
 
+locals {
+  rules_listener_arn = local.https_enabled ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
+}
+
 resource "aws_lb_listener_rule" "profile" {
-  listener_arn = aws_lb_listener.http.arn
+  listener_arn = local.rules_listener_arn
   priority     = 10
 
   action {
@@ -80,7 +134,7 @@ resource "aws_lb_listener_rule" "profile" {
 }
 
 resource "aws_lb_listener_rule" "contact" {
-  listener_arn = aws_lb_listener.http.arn
+  listener_arn = local.rules_listener_arn
   priority     = 20
 
   action {

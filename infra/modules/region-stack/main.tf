@@ -19,6 +19,18 @@ variable "contact_image" { type = string }
 variable "dynamodb_table_name" { type = string }
 variable "dynamodb_table_arn" { type = string }
 
+# Regional ACM cert for the ALB's HTTPS listener (must be issued in this
+# stack's region). Null = HTTP only.
+variable "certificate_arn" {
+  type    = string
+  default = null
+}
+
+variable "enable_https" {
+  type    = bool
+  default = false
+}
+
 data "aws_region" "current" {}
 
 module "network" {
@@ -41,6 +53,8 @@ module "alb" {
   vpc_id            = module.network.vpc_id
   subnet_ids        = module.network.public_subnet_ids
   security_group_id = module.network.alb_sg_id
+  certificate_arn   = var.certificate_arn
+  enable_https      = var.enable_https
 }
 
 module "profile_service" {
@@ -65,6 +79,7 @@ module "contact_service" {
   subnet_ids         = module.network.public_subnet_ids
   security_group_id  = module.network.services_sg_id
   target_group_arn   = module.alb.contact_tg_arn
+  grant_dynamodb     = true
   dynamodb_table_arn = var.dynamodb_table_arn
 
   environment = {

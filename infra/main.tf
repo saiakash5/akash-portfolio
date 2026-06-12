@@ -33,9 +33,11 @@ variable "project" { default = "akash-portfolio" }
 variable "primary_region" { default = "us-east-1" }
 variable "secondary_region" { default = "us-west-2" }
 
-# Set after registering a domain in Route 53 (e.g. "akashkuthuru.dev").
-# Leave empty to skip DNS failover resources for now.
-variable "domain_name" { default = "" }
+variable "domain_name" { default = "thesaiakash.com" }
+
+# false = deploy only the primary region (cuts idle cost roughly in half).
+# Flip to true when you want the full active-dormant DR setup.
+variable "enable_secondary" { default = true }
 
 # Image tags are passed by CI after pushing to ECR.
 variable "profile_image_tag" { default = "latest" }
@@ -101,48 +103,48 @@ locals {
 module "primary" {
   source = "./modules/region-stack"
 
-  name                = "${var.project}-primary"
+  # Short name: target-group names (name + "-profile") must fit 32 chars,
+  # IAM role name_prefix 38.
+  name                = "portfolio-primary"
   active              = true
   profile_image       = "${format(local.profile_image, var.primary_region)}:${var.profile_image_tag}"
   contact_image       = "${format(local.contact_image, var.primary_region)}:${var.contact_image_tag}"
   dynamodb_table_name = aws_dynamodb_table.messages.name
   dynamodb_table_arn  = aws_dynamodb_table.messages.arn
+  certificate_arn     = aws_acm_certificate_validation.api_primary.certificate_arn
+  enable_https        = true
 }
 
 module "secondary" {
+  count  = var.enable_secondary ? 1 : 0
   source = "./modules/region-stack"
   providers = {
     aws = aws.secondary
   }
 
-  name                = "${var.project}-secondary"
+  name                = "portfolio-secondary"
   active              = false # dormant: infra exists, 0 running tasks
   profile_image       = "${format(local.profile_image, var.secondary_region)}:${var.profile_image_tag}"
   contact_image       = "${format(local.contact_image, var.secondary_region)}:${var.contact_image_tag}"
   dynamodb_table_name = aws_dynamodb_table.messages.name
   dynamodb_table_arn  = aws_dynamodb_table.messages.arn
+  certificate_arn     = aws_acm_certificate_validation.api_secondary[0].certificate_arn
+  enable_https        = true
 }
 
-# ---------- Route 53 failover (requires a registered domain) ----------
-
-data "aws_route53_zone" "this" {
-  count = var.domain_name == "" ? 0 : 1
-  name  = var.domain_name
-}
+# ---------- Route 53 failover ----------
 
 resource "aws_route53_health_check" "primary_api" {
-  count             = var.domain_name == "" ? 0 : 1
   fqdn              = module.primary.alb_dns_name
-  port              = 80
-  type              = "HTTP"
+  port              = 443
+  type              = "HTTPS"
   resource_path     = "/api/profile" # must be a path the ALB actually routes
   failure_threshold = 3
   request_interval  = 30
 }
 
 resource "aws_route53_record" "api_primary" {
-  count          = var.domain_name == "" ? 0 : 1
-  zone_id        = data.aws_route53_zone.this[0].zone_id
+  zone_id        = data.aws_route53_zone.main.zone_id
   name           = "api.${var.domain_name}"
   type           = "A"
   set_identifier = "primary"
@@ -151,7 +153,7 @@ resource "aws_route53_record" "api_primary" {
     type = "PRIMARY"
   }
 
-  health_check_id = aws_route53_health_check.primary_api[0].id
+  health_check_id = aws_route53_health_check.primary_api.id
 
   alias {
     name                   = module.primary.alb_dns_name
@@ -161,8 +163,8 @@ resource "aws_route53_record" "api_primary" {
 }
 
 resource "aws_route53_record" "api_secondary" {
-  count          = var.domain_name == "" ? 0 : 1
-  zone_id        = data.aws_route53_zone.this[0].zone_id
+  count          = var.enable_secondary ? 1 : 0
+  zone_id        = data.aws_route53_zone.main.zone_id
   name           = "api.${var.domain_name}"
   type           = "A"
   set_identifier = "secondary"
@@ -172,8 +174,8 @@ resource "aws_route53_record" "api_secondary" {
   }
 
   alias {
-    name                   = module.secondary.alb_dns_name
-    zone_id                = module.secondary.alb_zone_id
+    name                   = module.secondary[0].alb_dns_name
+    zone_id                = module.secondary[0].alb_zone_id
     evaluate_target_health = true
   }
 }
@@ -181,7 +183,10 @@ resource "aws_route53_record" "api_secondary" {
 # ---------- Outputs ----------
 
 output "primary_alb" { value = module.primary.alb_dns_name }
-output "secondary_alb" { value = module.secondary.alb_dns_name }
+output "secondary_alb" {
+  value = var.enable_secondary ? module.secondary[0].alb_dns_name : null
+}
+output "api_url" { value = "https://api.${var.domain_name}" }
 output "ecr_profile_repo" { value = aws_ecr_repository.profile.repository_url }
 output "ecr_contact_repo" { value = aws_ecr_repository.contact.repository_url }
 output "dynamodb_table" { value = aws_dynamodb_table.messages.name }

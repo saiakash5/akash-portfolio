@@ -21,6 +21,13 @@ variable "environment" {
 }
 
 # Optional: grant the task write access to a DynamoDB table.
+# grant_dynamodb is a static flag because count cannot depend on the
+# (apply-time) table ARN.
+variable "grant_dynamodb" {
+  type    = bool
+  default = false
+}
+
 variable "dynamodb_table_arn" {
   type    = string
   default = null
@@ -65,7 +72,7 @@ resource "aws_iam_role" "task" {
 }
 
 resource "aws_iam_role_policy" "dynamodb" {
-  count       = var.dynamodb_table_arn == null ? 0 : 1
+  count       = var.grant_dynamodb ? 1 : 0
   name_prefix = "${var.name}-ddb-"
   role        = aws_iam_role.task.id
 

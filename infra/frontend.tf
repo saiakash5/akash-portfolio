@@ -26,11 +26,26 @@ resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   default_root_object = "index.html"
   price_class         = "PriceClass_100" # US/EU edges only — cheapest tier
+  aliases             = [var.domain_name, "www.${var.domain_name}"]
 
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
     origin_id                = "s3-frontend"
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+  }
+
+  # API origin via the failover DNS name, so /api/* rides the same
+  # active-dormant failover as direct api.* calls.
+  origin {
+    domain_name = "api.${var.domain_name}"
+    origin_id   = "api"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
   }
 
   default_cache_behavior {
@@ -42,6 +57,20 @@ resource "aws_cloudfront_distribution" "frontend" {
 
     # AWS managed "CachingOptimized" policy
     cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+  }
+
+  # Same-origin API: the browser calls /api/* on the site domain and
+  # CloudFront forwards it to the ALB — no CORS needed.
+  ordered_cache_behavior {
+    path_pattern           = "/api/*"
+    target_origin_id       = "api"
+    viewer_protocol_policy = "https-only"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods         = ["GET", "HEAD"]
+
+    # AWS managed policies: CachingDisabled + AllViewerExceptHostHeader
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
   }
 
   # SPA routing: serve index.html for unknown paths.
@@ -58,9 +87,36 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
-    # TODO: once domain_name is set, attach an ACM cert (us-east-1) and
-    # add aliases = [var.domain_name].
+    acm_certificate_arn      = aws_acm_certificate_validation.site.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
+  }
+}
+
+# Apex -> CloudFront. allow_overwrite because the zone still has a stale
+# alias pointing at a long-deleted NLB from an earlier experiment.
+resource "aws_route53_record" "site_apex" {
+  zone_id         = data.aws_route53_zone.main.zone_id
+  name            = var.domain_name
+  type            = "A"
+  allow_overwrite = true
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "site_www" {
+  zone_id = data.aws_route53_zone.main.zone_id
+  name    = "www.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    evaluate_target_health = false
   }
 }
 
