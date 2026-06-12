@@ -20,30 +20,32 @@ public class ProfileRepository {
             "Plano, TX",
             "saiakash5@gmail.com",
             "https://www.linkedin.com/in/akashkuthuru/",
-            "Backend developer with 6+ years of experience building resilient financial and insurance "
-                    + "applications with Java, Spring Boot, and AWS.",
+            "Backend developer with 6+ years of experience designing and building resilient financial "
+                    + "and insurance applications on Java, Spring Boot, and AWS.",
             List.of(
                     new Job(
                             "JPMorgan Chase", "Plano, TX", "Software Developer", "2021 – Present",
                             List.of("Java", "Spring Boot", "AWS", "PCF", "REST", "Resilience4J", "Spinnaker"),
                             List.of(
-                                    "Design and develop resilient microservices used by Chase.com and Chase Investments.",
-                                    "Migrated an on-prem GAIA-based application to AWS end to end.",
-                                    "Built a composite Spinnaker pipeline for blue-green deployments with immediate rollback.",
-                                    "Designed a Market Data API supporting real-time prices for equities and ETFs.",
-                                    "Reduced downtime from failed database calls using Resilience4J.")),
+                                    "Design and develop resilient microservices consumed by Chase.com and Chase Investments.",
+                                    "Led the end-to-end migration of an on-prem GAIA-based application to AWS.",
+                                    "Built a composite Spinnaker pipeline for blue-green deployments with instant rollback.",
+                                    "Designed and developed a Market Data API serving real-time equity and ETF prices.",
+                                    "Cut downtime caused by database failures using Resilience4J circuit breakers.",
+                                    "Migrated legacy downstream integrations to RESTful services end to end.")),
                     new Job(
                             "Vitech Systems Group", "Iselin, NJ", "Software Developer", "2018 – 2021",
                             List.of("Java", "Spring", "Hibernate", "PostgreSQL", "Oracle"),
                             List.of(
-                                    "Customized the V3 Core product for insurance and healthcare clients.",
-                                    "Developed complex claim-validation rules.",
-                                    "Optimized processes by rebuilding existing solutions.")),
+                                    "Customized the V3 Core product to meet the requirements of insurance and healthcare clients.",
+                                    "Designed and implemented complex claim-validation rules for reported claims.",
+                                    "Simplified and optimized processes by rebuilding legacy solutions.",
+                                    "Partnered with the demo team to showcase the V3 platform to prospective clients.")),
                     new Job(
                             "Vanderbilt University Medical Center", "Nashville, TN", "Application Developer", "2018",
                             List.of("Java", "Spring", "Hibernate", "AWS SNS"),
                             List.of(
-                                    "Built an application for investigators to request human tissue for research.",
+                                    "Built an online portal for investigators to register and request human tissue samples for research.",
                                     "Added SMS notifications to the CHTN application using AWS SNS."))),
             List.of(
                     new SkillGroup("Languages", List.of("Java", "SQL", "Python", "JavaScript")),

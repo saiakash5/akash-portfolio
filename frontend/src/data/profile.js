@@ -12,7 +12,7 @@ export const profile = {
   linkedin: "https://www.linkedin.com/in/akashkuthuru/",
   github: "https://github.com/akashkuthuru",
   summary:
-    "Backend developer with 6+ years of experience building resilient financial and insurance applications with Java, Spring Boot, and AWS. Currently expanding into Python and modern frontend development.",
+    "Backend developer with 6+ years of experience designing and building resilient financial and insurance applications on Java, Spring Boot, and AWS — currently expanding into Python and modern frontend development.",
   // Short facts shown as chips under the intro. Add/remove freely.
   facts: ["6+ years experience", "AWS Certified Developer", "Plano, TX"],
 };
@@ -25,12 +25,13 @@ export const experience = [
     period: "2021 – Present",
     stack: ["Java", "Spring Boot", "AWS", "PCF", "REST", "Resilience4J", "Spinnaker"],
     highlights: [
-      "Design and develop resilient microservices used by internal clients like Chase.com and Chase Investments.",
-      "Migrated an on-prem GAIA-based application to AWS with full end-to-end implementation.",
-      "Built a composite Spinnaker pipeline providing blue-green deployments with immediate rollback.",
-      "Own services that power the login page for investment platforms — improved performance and reduced downtime at both the functional and infrastructure level.",
-      "Designed and developed a Market Data API supporting real-time prices for equities and ETFs.",
-      "Reduced downtime from failed database calls using Resilience4J circuit breakers.",
+      "Design and develop resilient microservices consumed by internal clients including Chase.com and Chase Investments.",
+      "Led the end-to-end migration of an on-prem GAIA-based application to AWS.",
+      "Built a composite Spinnaker pipeline that gives the team blue-green deployments with instant rollback.",
+      "Own the services behind the investment-platform login experience — delivered performance gains and reduced downtime at both the application and infrastructure level.",
+      "Designed and developed a Market Data API serving real-time equity and ETF prices.",
+      "Cut downtime caused by database failures by introducing Resilience4J circuit breakers.",
+      "Migrated legacy downstream integrations to RESTful services end to end.",
     ],
   },
   {
@@ -40,9 +41,10 @@ export const experience = [
     period: "2018 – 2021",
     stack: ["Java", "Spring", "Hibernate", "PostgreSQL", "Oracle"],
     highlights: [
-      "Customized the V3 Core product for multiple insurance and healthcare clients.",
-      "Developed complex claim-validation rules for reported claims.",
-      "Optimized existing solutions by analyzing business requirements and rebuilding processes.",
+      "Customized the V3 Core product to meet the requirements of multiple insurance and healthcare clients.",
+      "Designed and implemented complex claim-validation rules for reported claims.",
+      "Simplified and optimized existing processes by analyzing business requirements and rebuilding legacy solutions.",
+      "Partnered with the company's demo team to showcase the V3 platform to prospective clients.",
     ],
   },
   {
@@ -52,8 +54,8 @@ export const experience = [
     period: "2018",
     stack: ["Java", "Spring", "Hibernate", "AWS SNS"],
     highlights: [
-      "Built an application for investigators to register and request human tissue for research projects.",
-      "Added SMS notifications to the CHTN application using AWS SNS.",
+      "Built an online portal for research investigators to register and request human tissue samples for approved research projects.",
+      "Added SMS notifications to the CHTN application for medical-center customers using AWS SNS.",
     ],
   },
 ];
@@ -88,13 +90,13 @@ export const projects = [
   {
     name: "Similarity Measures via Sketching Algorithms",
     description:
-      "Implemented Adamic-Adar, Common Neighbors, Preferential Attachment, and Jaccard Coefficient similarity measures using graph sketches, reducing result time by 33%.",
+      "Implemented Adamic-Adar, Common Neighbors, Preferential Attachment, and Jaccard Coefficient similarity measures with sketching algorithms — graph sketches cut computation time by 33%.",
     tags: ["Algorithms", "Graphs", "Java"],
   },
   {
     name: "Fitbit Data Visualization",
     description:
-      "Visualized Fitbit activity data and user locations using the Fitbit API, Google Maps API, and Google Charts.",
+      "Built a Fitbit-API-powered app that maps user locations with the Google Maps API and visualizes activity data with Google Charts.",
     tags: ["JavaScript", "Google Maps API", "Data Viz"],
   },
 ];
