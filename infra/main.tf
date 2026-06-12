@@ -44,8 +44,9 @@ variable "secondary_region" { default = "us-west-2" }
 variable "domain_name" { default = "thesaiakash.com" }
 
 # false = deploy only the primary region (cuts idle cost roughly in half).
-# Flip to true when you want the full active-dormant DR setup.
-variable "enable_secondary" { default = true }
+# Flip to true when you want the full active-dormant DR setup
+# (e.g. terraform apply -var enable_secondary=true for a DR demo).
+variable "enable_secondary" { default = false }
 
 # Image tags are passed by CI after pushing to ECR.
 variable "profile_image_tag" { default = "latest" }
