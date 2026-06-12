@@ -2,17 +2,34 @@ import { profile } from "../data/profile";
 
 export default function Hero() {
   return (
-    <header className="hero">
-      <p className="hero-kicker">{profile.location}</p>
+    <header className="hero" id="top">
+      <p className="hero-kicker">{profile.title}</p>
       <h1>{profile.name}</h1>
-      <h2>{profile.title}</h2>
       <p className="hero-summary">{profile.summary}</p>
+
+      <div className="hero-facts">
+        {profile.facts.map((f) => (
+          <span className="fact" key={f}>
+            {f}
+          </span>
+        ))}
+      </div>
+
       <div className="hero-links">
-        <a href={`mailto:${profile.email}`}>Email</a>
-        <a href={profile.linkedin} target="_blank" rel="noreferrer">
+        <a className="btn btn-primary" href="#contact">
+          Get in touch
+        </a>
+        <a className="btn" href={`mailto:${profile.email}`}>
+          Email
+        </a>
+        <a className="btn" href={profile.linkedin} target="_blank" rel="noreferrer">
           LinkedIn
         </a>
-        <a href="#contact">Contact</a>
+        {profile.github && (
+          <a className="btn" href={profile.github} target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+        )}
       </div>
     </header>
   );

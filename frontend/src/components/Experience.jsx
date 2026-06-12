@@ -2,7 +2,7 @@ import { experience } from "../data/profile";
 
 export default function Experience() {
   return (
-    <section id="experience">
+    <section id="experience" className="reveal">
       <h3>Experience</h3>
       {experience.map((job) => (
         <article className="card" key={job.company}>

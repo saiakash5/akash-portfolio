@@ -2,7 +2,7 @@ import { projects } from "../data/profile";
 
 export default function Projects() {
   return (
-    <section id="projects">
+    <section id="projects" className="reveal">
       <h3>Projects</h3>
       {projects.map((p) => (
         <article className="card" key={p.name}>

@@ -29,7 +29,7 @@ export default function Contact() {
   }
 
   return (
-    <section id="contact">
+    <section id="contact" className="reveal">
       <h3>Get in Touch</h3>
       <form className="card contact-form" onSubmit={submit}>
         <label>

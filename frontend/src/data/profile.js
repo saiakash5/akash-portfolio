@@ -1,5 +1,8 @@
-// Single source of truth for portfolio content.
-// Later this can be fetched from the Spring Boot profile-service instead.
+// ============================================================
+//  YOUR CONTENT LIVES HERE — this is the only file you need to
+//  edit to change what the site says. See frontend/EDITING.md
+//  for copy-paste recipes (new job, new project, new section).
+// ============================================================
 
 export const profile = {
   name: "Sai Akash Kuthuru",
@@ -7,8 +10,11 @@ export const profile = {
   location: "Plano, TX",
   email: "saiakash5@gmail.com",
   linkedin: "https://www.linkedin.com/in/akashkuthuru/",
+  github: "https://github.com/akashkuthuru",
   summary:
     "Backend developer with 6+ years of experience building resilient financial and insurance applications with Java, Spring Boot, and AWS. Currently expanding into Python and modern frontend development.",
+  // Short facts shown as chips under the intro. Add/remove freely.
+  facts: ["6+ years experience", "AWS Certified Developer", "Plano, TX"],
 };
 
 export const experience = [
@@ -108,4 +114,23 @@ export const education = [
 
 export const certifications = [
   { name: "AWS Certified Developer – Associate", year: "2022" },
+];
+
+// ============================================================
+//  CUSTOM BLOCKS — add any extra section without writing React.
+//  Each block becomes its own section on the page, in order.
+//  Every field except `title` is optional. Uncomment the example
+//  below to see how it works.
+// ============================================================
+
+export const extras = [
+  // {
+  //   title: "Beyond the Code",
+  //   body: [
+  //     "First paragraph about hobbies, interests, or anything personal.",
+  //     "Second paragraph if you want one.",
+  //   ],
+  //   tags: ["Cricket", "Cooking", "Travel"],
+  //   links: [{ label: "My blog", url: "https://example.com" }],
+  // },
 ];
