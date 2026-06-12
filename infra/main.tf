@@ -14,10 +14,18 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 
-  # TODO: move state to S3 + DynamoDB locking before working from CI:
-  # backend "s3" { ... }
+  backend "s3" {
+    bucket       = "akash-portfolio-tfstate-871716941934"
+    key          = "akash-portfolio/terraform.tfstate"
+    region       = "us-east-1"
+    use_lockfile = true # S3-native locking (Terraform 1.10+), no DynamoDB needed
+  }
 }
 
 provider "aws" {
@@ -70,6 +78,32 @@ resource "aws_ecr_replication_configuration" "this" {
 
 data "aws_caller_identity" "current" {}
 
+# Keep only the 10 most recent images per repo.
+resource "aws_ecr_lifecycle_policy" "profile" {
+  repository = aws_ecr_repository.profile.name
+  policy     = local.ecr_lifecycle
+}
+
+resource "aws_ecr_lifecycle_policy" "contact" {
+  repository = aws_ecr_repository.contact.name
+  policy     = local.ecr_lifecycle
+}
+
+locals {
+  ecr_lifecycle = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "keep last 10 images"
+      selection = {
+        tagStatus   = "any"
+        countType   = "imageCountMoreThan"
+        countNumber = 10
+      }
+      action = { type = "expire" }
+    }]
+  })
+}
+
 # ---------- DynamoDB global table (auto multi-region replication) ----------
 
 resource "aws_dynamodb_table" "messages" {
@@ -113,6 +147,11 @@ module "primary" {
   dynamodb_table_arn  = aws_dynamodb_table.messages.arn
   certificate_arn     = aws_acm_certificate_validation.api_primary.certificate_arn
   enable_https        = true
+
+  enable_sns           = true
+  sns_topic_arn        = aws_sns_topic.contact.arn
+  enable_origin_verify = true
+  origin_verify_secret = random_password.origin_verify.result
 }
 
 module "secondary" {
@@ -130,6 +169,11 @@ module "secondary" {
   dynamodb_table_arn  = aws_dynamodb_table.messages.arn
   certificate_arn     = aws_acm_certificate_validation.api_secondary[0].certificate_arn
   enable_https        = true
+
+  enable_sns           = true
+  sns_topic_arn        = aws_sns_topic.contact.arn
+  enable_origin_verify = true
+  origin_verify_secret = random_password.origin_verify.result
 }
 
 # ---------- Route 53 failover ----------

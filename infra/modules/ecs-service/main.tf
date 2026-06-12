@@ -33,6 +33,17 @@ variable "dynamodb_table_arn" {
   default = null
 }
 
+# Optional: allow the task to publish to an SNS topic.
+variable "grant_sns" {
+  type    = bool
+  default = false
+}
+
+variable "sns_topic_arn" {
+  type    = string
+  default = null
+}
+
 data "aws_region" "current" {}
 
 resource "aws_cloudwatch_log_group" "this" {
@@ -82,6 +93,21 @@ resource "aws_iam_role_policy" "dynamodb" {
       Effect   = "Allow"
       Action   = ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:Query"]
       Resource = var.dynamodb_table_arn
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "sns" {
+  count       = var.grant_sns ? 1 : 0
+  name_prefix = "${var.name}-sns-"
+  role        = aws_iam_role.task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "sns:Publish"
+      Resource = var.sns_topic_arn
     }]
   })
 }

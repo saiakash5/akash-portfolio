@@ -31,6 +31,29 @@ variable "enable_https" {
   default = false
 }
 
+# Static enable flags (separate from the apply-time values they gate,
+# because count cannot depend on unknown values).
+variable "enable_sns" {
+  type    = bool
+  default = false
+}
+
+variable "sns_topic_arn" {
+  type    = string
+  default = null
+}
+
+variable "enable_origin_verify" {
+  type    = bool
+  default = false
+}
+
+variable "origin_verify_secret" {
+  type      = string
+  default   = null
+  sensitive = true
+}
+
 data "aws_region" "current" {}
 
 module "network" {
@@ -52,9 +75,11 @@ module "alb" {
   name              = var.name
   vpc_id            = module.network.vpc_id
   subnet_ids        = module.network.public_subnet_ids
-  security_group_id = module.network.alb_sg_id
-  certificate_arn   = var.certificate_arn
-  enable_https      = var.enable_https
+  security_group_id     = module.network.alb_sg_id
+  certificate_arn       = var.certificate_arn
+  enable_https          = var.enable_https
+  require_origin_verify = var.enable_origin_verify
+  origin_verify_secret  = var.origin_verify_secret
 }
 
 module "profile_service" {
@@ -81,10 +106,13 @@ module "contact_service" {
   target_group_arn   = module.alb.contact_tg_arn
   grant_dynamodb     = true
   dynamodb_table_arn = var.dynamodb_table_arn
+  grant_sns          = var.enable_sns
+  sns_topic_arn      = var.sns_topic_arn
 
   environment = {
     TABLE_NAME = var.dynamodb_table_name
     AWS_REGION = data.aws_region.current.name
+    TOPIC_ARN  = var.sns_topic_arn == null ? "" : var.sns_topic_arn
   }
 }
 

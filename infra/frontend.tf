@@ -27,6 +27,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   default_root_object = "index.html"
   price_class         = "PriceClass_100" # US/EU edges only — cheapest tier
   aliases             = [var.domain_name, "www.${var.domain_name}"]
+  web_acl_id          = aws_wafv2_web_acl.frontend.arn
 
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
@@ -45,6 +46,13 @@ resource "aws_cloudfront_distribution" "frontend" {
       https_port             = 443
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
+    }
+
+    # The ALB only accepts /api/contact requests carrying this header,
+    # so all writes must pass through CloudFront (and the WAF).
+    custom_header {
+      name  = "X-Origin-Verify"
+      value = random_password.origin_verify.result
     }
   }
 

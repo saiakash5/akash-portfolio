@@ -18,6 +18,10 @@ logger = logging.getLogger("contact-service")
 
 TABLE_NAME = os.environ.get("TABLE_NAME")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
+TOPIC_ARN = os.environ.get("TOPIC_ARN") or None
+# SNS topic lives in the primary region; parse its region from the ARN so
+# the dormant-region task can still publish to it after a failover.
+TOPIC_REGION = TOPIC_ARN.split(":")[3] if TOPIC_ARN else AWS_REGION
 
 app = FastAPI(title="contact-service", version="0.1.0")
 
@@ -55,5 +59,21 @@ def submit_contact(msg: ContactMessage) -> dict:
     else:
         # Local development — no AWS credentials needed.
         logger.info("TABLE_NAME not set; logging message instead: %s", item)
+
+    if TOPIC_ARN:
+        # Best-effort: a failed notification must not fail the submission —
+        # the message is already stored in DynamoDB.
+        try:
+            boto3.client("sns", region_name=TOPIC_REGION).publish(
+                TopicArn=TOPIC_ARN,
+                Subject=f"Portfolio contact from {msg.name}",
+                Message=(
+                    f"From: {msg.name} <{msg.email}>\n"
+                    f"Received: {item['received_at']} ({item['region']})\n\n"
+                    f"{msg.message}"
+                ),
+            )
+        except Exception:
+            logger.exception("Failed to publish contact notification to SNS")
 
     return {"id": item["pk"], "status": "received"}

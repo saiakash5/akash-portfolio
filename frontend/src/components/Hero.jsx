@@ -30,6 +30,9 @@ export default function Hero() {
             GitHub
           </a>
         )}
+        <a className="btn" href="/resume.pdf" target="_blank" rel="noreferrer">
+          Résumé
+        </a>
       </div>
     </header>
   );

@@ -20,6 +20,20 @@ variable "certificate_arn" {
   default = null
 }
 
+# When set, /api/contact requests must carry X-Origin-Verify with this value
+# (stamped by CloudFront), so writes can't bypass the WAF by hitting the ALB
+# directly. Static enable flag for the same count-vs-unknown reason as above.
+variable "require_origin_verify" {
+  type    = bool
+  default = false
+}
+
+variable "origin_verify_secret" {
+  type      = string
+  default   = null
+  sensitive = true
+}
+
 locals {
   https_enabled = var.enable_https
 }
@@ -145,6 +159,16 @@ resource "aws_lb_listener_rule" "contact" {
   condition {
     path_pattern {
       values = ["/api/contact*"]
+    }
+  }
+
+  dynamic "condition" {
+    for_each = var.require_origin_verify ? [1] : []
+    content {
+      http_header {
+        http_header_name = "X-Origin-Verify"
+        values           = [var.origin_verify_secret]
+      }
     }
   }
 }
