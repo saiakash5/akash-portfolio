@@ -44,6 +44,25 @@ variable "sns_topic_arn" {
   default = null
 }
 
+# Lightswitch: scheduled on/off so the service only runs during showcase
+# hours. The schedule owns desired_count once enabled.
+variable "enable_schedule" {
+  type    = bool
+  default = false
+}
+
+variable "schedule_up_cron" {
+  default = "cron(0 8 ? * MON-FRI *)" # 8:00 AM weekdays
+}
+
+variable "schedule_down_cron" {
+  default = "cron(0 16 ? * * *)" # 4:00 PM every day (safety net for weekend overrides)
+}
+
+variable "schedule_timezone" {
+  default = "America/Chicago"
+}
+
 data "aws_region" "current" {}
 
 resource "aws_cloudwatch_log_group" "this" {
@@ -161,6 +180,53 @@ resource "aws_ecs_service" "this" {
     target_group_arn = var.target_group_arn
     container_name   = var.name
     container_port   = var.container_port
+  }
+
+  lifecycle {
+    # The lightswitch schedule and manual overrides own desired_count after
+    # creation; Terraform must not reset it on every apply.
+    ignore_changes = [desired_count]
+  }
+}
+
+# ---------- Lightswitch (scheduled on/off) ----------
+
+resource "aws_appautoscaling_target" "this" {
+  count              = var.enable_schedule ? 1 : 0
+  service_namespace  = "ecs"
+  scalable_dimension = "ecs:service:DesiredCount"
+  resource_id        = "service/${split("/", var.cluster_arn)[1]}/${aws_ecs_service.this.name}"
+  min_capacity       = 0
+  max_capacity       = 1
+}
+
+resource "aws_appautoscaling_scheduled_action" "up" {
+  count              = var.enable_schedule ? 1 : 0
+  name               = "${var.name}-lightswitch-on"
+  service_namespace  = aws_appautoscaling_target.this[0].service_namespace
+  scalable_dimension = aws_appautoscaling_target.this[0].scalable_dimension
+  resource_id        = aws_appautoscaling_target.this[0].resource_id
+  schedule           = var.schedule_up_cron
+  timezone           = var.schedule_timezone
+
+  scalable_target_action {
+    min_capacity = 1
+    max_capacity = 1
+  }
+}
+
+resource "aws_appautoscaling_scheduled_action" "down" {
+  count              = var.enable_schedule ? 1 : 0
+  name               = "${var.name}-lightswitch-off"
+  service_namespace  = aws_appautoscaling_target.this[0].service_namespace
+  scalable_dimension = aws_appautoscaling_target.this[0].scalable_dimension
+  resource_id        = aws_appautoscaling_target.this[0].resource_id
+  schedule           = var.schedule_down_cron
+  timezone           = var.schedule_timezone
+
+  scalable_target_action {
+    min_capacity = 0
+    max_capacity = 0
   }
 }
 

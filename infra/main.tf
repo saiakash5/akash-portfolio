@@ -152,6 +152,10 @@ module "primary" {
   sns_topic_arn        = aws_sns_topic.contact.arn
   enable_origin_verify = true
   origin_verify_secret = random_password.origin_verify.result
+
+  # Lightswitch: run only 8am-4pm America/Chicago on weekdays.
+  # Manual override: scripts/lightswitch.ps1 on|off
+  enable_lightswitch = true
 }
 
 module "secondary" {

@@ -48,6 +48,12 @@ variable "enable_origin_verify" {
   default = false
 }
 
+# Lightswitch: schedule services on/off (showcase hours only).
+variable "enable_lightswitch" {
+  type    = bool
+  default = false
+}
+
 variable "origin_verify_secret" {
   type      = string
   default   = null
@@ -92,6 +98,7 @@ module "profile_service" {
   subnet_ids        = module.network.public_subnet_ids
   security_group_id = module.network.services_sg_id
   target_group_arn  = module.alb.profile_tg_arn
+  enable_schedule   = var.enable_lightswitch
 }
 
 module "contact_service" {
@@ -108,6 +115,7 @@ module "contact_service" {
   dynamodb_table_arn = var.dynamodb_table_arn
   grant_sns          = var.enable_sns
   sns_topic_arn      = var.sns_topic_arn
+  enable_schedule    = var.enable_lightswitch
 
   environment = {
     TABLE_NAME = var.dynamodb_table_name
