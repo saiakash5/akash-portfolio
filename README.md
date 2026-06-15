@@ -12,7 +12,7 @@ admin portal; the repository is the skill showcase.
                          Route 53
                    thesaiakash.com → CloudFront
                             │
-                  CloudFront ── WAF (rate limit + managed rules)
+                       CloudFront
                    │                          │
          default behavior              /api/* behavior
                    │                          │
@@ -39,7 +39,7 @@ contact form works 24/7, and idle cost is a few dollars a month.
 | Contact form    | Python Lambda                   | Validates → DynamoDB → SNS email             |
 | Database        | DynamoDB (content + messages)   | Schemaless, pay-per-request                  |
 | Auth            | Amazon Cognito                  | Admin login (OAuth Code + PKCE)              |
-| Edge            | CloudFront + WAF + ACM          | TLS, caching, rate limiting                  |
+| Edge            | CloudFront + ACM                | TLS, caching, global delivery                |
 | Infra / CI      | Terraform + GitHub Actions OIDC | One `apply`; keyless frontend deploys        |
 
 ## Content model
@@ -102,7 +102,8 @@ keys stored in the repo.
 
 ## Notes
 
-- Cost is roughly **$6–7/month** (WAF is the largest line item; Lambda,
-  DynamoDB, API Gateway, and CloudFront are near-zero at portfolio traffic).
+- Cost is roughly **$1/month** (just the Route 53 hosted zone; Lambda,
+  DynamoDB, API Gateway, Cognito, and CloudFront are all near-zero at
+  portfolio traffic).
 - The git history contains an earlier multi-region ECS/Fargate + Spring Boot +
   FastAPI iteration, retired in favor of this serverless design.
