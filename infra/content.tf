@@ -282,6 +282,23 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.content.id
   name        = "$default"
   auto_deploy = true
+
+  # Free aggregate throttling — a ceiling on total req/s to cap cost and
+  # protect the Lambdas from a runaway loop or scraper. NOTE: this is
+  # account/stage-wide, not per-IP (that needs WAF). Burst = token-bucket
+  # capacity; rate = steady-state req/s.
+  default_route_settings {
+    throttling_burst_limit = 20
+    throttling_rate_limit  = 10
+  }
+
+  # Tighter limit on the one write endpoint that emails me — real contact
+  # submissions are rare, so this blunts spam bursts.
+  route_settings {
+    route_key              = "POST /api/contact"
+    throttling_burst_limit = 5
+    throttling_rate_limit  = 2
+  }
 }
 
 resource "aws_lambda_permission" "read" {
