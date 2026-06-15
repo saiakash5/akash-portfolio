@@ -83,6 +83,12 @@ data "archive_file" "admin_lambda" {
   output_path = "${path.module}/.build/admin.zip"
 }
 
+data "archive_file" "contact_lambda" {
+  type        = "zip"
+  source_dir  = "${path.module}/../services/contact-fn"
+  output_path = "${path.module}/.build/contact.zip"
+}
+
 # ---------- Lambda IAM ----------
 
 resource "aws_iam_role" "lambda" {
@@ -150,6 +156,64 @@ resource "aws_lambda_function" "admin" {
   }
 }
 
+# ---------- Contact Lambda (replaces FastAPI/ECS) ----------
+
+resource "aws_iam_role" "contact_lambda" {
+  name = "${var.project}-contact-lambda"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "contact_logs" {
+  role       = aws_iam_role.contact_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "contact_perms" {
+  name = "contact-write"
+  role = aws_iam_role.contact_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "dynamodb:PutItem"
+        Resource = aws_dynamodb_table.messages.arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = "sns:Publish"
+        Resource = aws_sns_topic.contact.arn
+      }
+    ]
+  })
+}
+
+resource "aws_lambda_function" "contact" {
+  function_name    = "${var.project}-contact"
+  role             = aws_iam_role.contact_lambda.arn
+  runtime          = "python3.12"
+  handler          = "handler.handler"
+  filename         = data.archive_file.contact_lambda.output_path
+  source_code_hash = data.archive_file.contact_lambda.output_base64sha256
+  timeout          = 10
+
+  environment {
+    variables = {
+      MESSAGES_TABLE = aws_dynamodb_table.messages.name
+      TOPIC_ARN      = aws_sns_topic.contact.arn
+    }
+  }
+}
+
 # ---------- API Gateway HTTP API ----------
 
 resource "aws_apigatewayv2_api" "content" {
@@ -184,11 +248,25 @@ resource "aws_apigatewayv2_integration" "admin" {
   payload_format_version = "2.0"
 }
 
+resource "aws_apigatewayv2_integration" "contact" {
+  api_id                 = aws_apigatewayv2_api.content.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.contact.invoke_arn
+  payload_format_version = "2.0"
+}
+
 # Public read route (no auth).
 resource "aws_apigatewayv2_route" "read" {
   api_id    = aws_apigatewayv2_api.content.id
   route_key = "GET /api/content"
   target    = "integrations/${aws_apigatewayv2_integration.read.id}"
+}
+
+# Public contact route (no auth; WAF rate-limits at CloudFront).
+resource "aws_apigatewayv2_route" "contact" {
+  api_id    = aws_apigatewayv2_api.content.id
+  route_key = "POST /api/contact"
+  target    = "integrations/${aws_apigatewayv2_integration.contact.id}"
 }
 
 # Admin routes (Cognito-protected). ANY + greedy proxy → the handler routes.
@@ -218,6 +296,14 @@ resource "aws_lambda_permission" "admin" {
   statement_id  = "AllowApiGwAdmin"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.admin.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.content.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "contact" {
+  statement_id  = "AllowApiGwContact"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.contact.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.content.execution_arn}/*/*"
 }

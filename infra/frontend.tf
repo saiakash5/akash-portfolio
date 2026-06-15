@@ -35,30 +35,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
   }
 
-  # API origin via the failover DNS name, so /api/* rides the same
-  # active-dormant failover as direct api.* calls.
-  origin {
-    domain_name = "api.${var.domain_name}"
-    origin_id   = "api"
-
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "https-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-    }
-
-    # The ALB only accepts /api/contact requests carrying this header,
-    # so all writes must pass through CloudFront (and the WAF).
-    custom_header {
-      name  = "X-Origin-Verify"
-      value = random_password.origin_verify.result
-    }
-  }
-
-  # Serverless content plane (always-on): API Gateway in front of the
-  # read/admin Lambdas. This is how the public site gets its content even
-  # while the ECS services are lightswitched off.
+  # Serverless API: API Gateway in front of the read / admin / contact Lambdas.
   origin {
     domain_name = replace(aws_apigatewayv2_api.content.api_endpoint, "https://", "")
     origin_id   = "content-api"
@@ -82,43 +59,18 @@ resource "aws_cloudfront_distribution" "frontend" {
     cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   }
 
-  # Content plane behaviors — MUST precede the broad /api/* (ALB) behavior;
-  # CloudFront matches ordered behaviors top-down, first match wins.
-  # Public content read (GET, always-on Lambda).
-  ordered_cache_behavior {
-    path_pattern           = "/api/content"
-    target_origin_id       = "content-api"
-    viewer_protocol_policy = "https-only"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
-    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac" # AllViewerExceptHostHeader
-  }
-
-  # Admin CRUD (Cognito-protected at API Gateway). Authorization header is
-  # forwarded by the AllViewerExceptHostHeader policy.
-  ordered_cache_behavior {
-    path_pattern           = "/api/admin/*"
-    target_origin_id       = "content-api"
-    viewer_protocol_policy = "https-only"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
-    cached_methods         = ["GET", "HEAD"]
-    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
-    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
-  }
-
-  # Same-origin API: the browser calls /api/* on the site domain and
-  # CloudFront forwards it to the ALB — no CORS needed.
+  # All API traffic (/api/content, /api/contact, /api/admin/*) → API Gateway.
+  # Same-origin as the site, so no CORS; Authorization header forwarded by the
+  # AllViewerExceptHostHeader policy for the Cognito-protected admin routes.
   ordered_cache_behavior {
     path_pattern           = "/api/*"
-    target_origin_id       = "api"
+    target_origin_id       = "content-api"
     viewer_protocol_policy = "https-only"
     allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods         = ["GET", "HEAD"]
 
-    # AWS managed policies: CachingDisabled + AllViewerExceptHostHeader
-    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
-    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac" # AllViewerExceptHostHeader
   }
 
   # SPA routing: serve index.html for unknown paths.

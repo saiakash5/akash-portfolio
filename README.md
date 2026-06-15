@@ -1,109 +1,108 @@
 # akash-portfolio
 
-Personal portfolio site for **Sai Akash Kuthuru** — and a working demonstration of a
-multi-region, polyglot microservices platform on AWS.
+Personal portfolio site for **Sai Akash Kuthuru** — and a working demonstration
+of a fully serverless web platform on AWS, defined end to end in Terraform.
 
-The site content is the resume; the repository is the skill showcase.
+The site content lives in DynamoDB and is editable through a Cognito-secured
+admin portal; the repository is the skill showcase.
 
 ## Architecture
 
 ```
-                         Route 53 (failover routing)
-                         /                         \
-               us-east-1 (ACTIVE)            us-west-2 (DORMANT)
-               ─────────────────             ──────────────────
-    CloudFront ── S3  (React frontend — global, survives regional failover)
-               │
-              ALB ──► /api/profile/*  ──► ECS Fargate: profile-service (Spring Boot)
-               │                                                        ┌─ scaled to 0
-               └────► /api/contact*   ──► ECS Fargate: contact-service  │  in dormant
-                                          (FastAPI)                     │  region
-                                              │                         └─ (pilot light)
-                              DynamoDB Global Tables
-                              (automatic bi-directional replication)
+                         Route 53
+                   thesaiakash.com → CloudFront
+                            │
+                  CloudFront ── WAF (rate limit + managed rules)
+                   │                          │
+         default behavior              /api/* behavior
+                   │                          │
+                  S3                    API Gateway (HTTP API)
+            (React SPA build)          ├─ GET  /api/content  → read Lambda   ─┐
+                                       ├─ POST /api/contact  → contact Lambda ─┤
+                                       └─ ANY  /api/admin/*  → admin Lambda   ─┤
+                                          (Cognito JWT authorizer)            │
+                                                                              ▼
+                                       Cognito  ──login──►  /admin       DynamoDB
+                                       (admin portal)                    (content + messages)
+                                                                              │
+                                                          contact Lambda → SNS → email
 ```
 
-**Active–dormant DR:** both regions get identical infrastructure from the same
-Terraform modules. The dormant region runs the full network/ALB/cluster but its
-ECS services are scaled to 0 tasks. Route 53 health checks the primary ALB and
-fails DNS over to the secondary if it goes unhealthy; recovery is "scale the
-dormant services up," not "rebuild the region."
+Everything is **serverless and scale-to-zero** — no servers to keep awake, the
+contact form works 24/7, and idle cost is a few dollars a month.
 
-| Component        | Tech                          | Why                                            |
-| ---------------- | ----------------------------- | ---------------------------------------------- |
-| Frontend         | React + Vite → S3 + CloudFront| Static, global, costs pennies                  |
-| profile-service  | Java 21 / Spring Boot 3       | Serves resume/profile data as a REST API       |
-| contact-service  | Python 3.12 / FastAPI         | Stores contact-form messages in DynamoDB       |
-| Database         | DynamoDB Global Tables        | Serverless, multi-region replication built in  |
-| Infra            | Terraform (AWS provider v5)   | Modules reused across both regions             |
+| Component       | Tech                            | Role                                         |
+| --------------- | ------------------------------- | -------------------------------------------- |
+| Frontend        | React + Vite → S3 + CloudFront  | Public site + `/admin` portal (one SPA)      |
+| Content read    | Python Lambda + API Gateway     | Serves published sections to the public site |
+| Admin CRUD      | Python Lambda (Cognito JWT)     | Add/edit/delete sections, draft → publish    |
+| Contact form    | Python Lambda                   | Validates → DynamoDB → SNS email             |
+| Database        | DynamoDB (content + messages)   | Schemaless, pay-per-request                  |
+| Auth            | Amazon Cognito                  | Admin login (OAuth Code + PKCE)              |
+| Edge            | CloudFront + WAF + ACM          | TLS, caching, rate limiting                  |
+| Infra / CI      | Terraform + GitHub Actions OIDC | One `apply`; keyless frontend deploys        |
+
+## Content model
+
+One DynamoDB item per section (`profile`, `experience`, `projects`, `skills`,
+or custom like `hobbies`), each with an `order`, a `published` blob, and a
+`draft` blob. The public read Lambda returns only `published` sections; the
+admin portal edits `draft` and copies it to `published` on publish.
 
 ## Repository layout
 
 ```
-frontend/                  React + Vite single-page app
+frontend/                     React SPA — public site + /admin portal
+  src/PublicSite.jsx          fetches /api/content, renders sections by kind
+  src/Admin.jsx               Cognito-gated content editor
+  src/data/profile.js         static seed / fallback content
 services/
-  profile-service/         Spring Boot REST API  (port 8080, /api/profile)
-  contact-service/         FastAPI service        (port 8001, /api/contact)
-infra/                     Terraform — root config + reusable modules
-  modules/network/         VPC, public subnets, security groups
-  modules/alb/             ALB + path-based routing + target groups
-  modules/ecs-service/     Reusable Fargate service (task def, IAM, logs)
-  modules/region-stack/    One full regional backend (instantiated twice)
-docker-compose.yml         Run both backend services locally
+  content-api/read/           public content read Lambda
+  content-api/admin/          admin CRUD Lambda (draft/publish, reorder)
+  contact-fn/                 contact form Lambda
+infra/                        Terraform (single file set, no modules)
+  main.tf                     providers, state backend, messages table
+  content.tf                  DynamoDB, Cognito, Lambdas, API Gateway
+  frontend.tf                 S3, CloudFront, DNS records
+  certs.tf  waf.tf  notifications.tf  cicd.tf
+scripts/seed_content.py       seed DynamoDB from the static resume data
 ```
 
 ## Local development
 
-Prereqs: Node 20+, JDK 21, Python 3.12, Docker.
+Prereqs: Node 20+, Python 3.12.
 
 ```bash
-# Frontend (http://localhost:5173 — proxies /api to the services below)
 cd frontend
 npm install
-npm run dev
-
-# Both backend services in containers
-docker compose up --build
-
-# …or natively:
-cd services/profile-service && ./mvnw spring-boot:run        # :8080
-cd services/contact-service && pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8001                    # :8001
+npm run dev   # http://localhost:5173 — proxies /api/* to API Gateway
 ```
 
-Smoke test:
+The dev server proxies `/api/*` to the deployed API Gateway, so the live
+content and contact endpoints work locally without running anything else.
 
-```bash
-curl http://localhost:8080/api/profile
-curl -X POST http://localhost:8001/api/contact \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Test","email":"t@example.com","message":"Hi"}'
-```
-
-## Deploying to AWS
+## Deploying
 
 ```bash
 cd infra
 terraform init
-terraform plan -out tf.plan
-terraform apply tf.plan
+terraform apply          # provisions everything; Lambda code ships with apply
+python ../scripts/seed_content.py   # one-time content seed
 ```
 
-Then build/push images to the ECR repos from the outputs, and sync the frontend:
+Frontend changes auto-deploy via GitHub Actions on push to `main` (build →
+S3 sync → CloudFront invalidation), authenticated with GitHub OIDC — no AWS
+keys stored in the repo.
 
-```bash
-cd frontend && npm run build
-aws s3 sync dist "s3://$(terraform -chdir=../infra output -raw frontend_bucket)"
-```
+## Editing content
 
-**Cost note:** the two-region backend (2 ALBs + Fargate + global table) runs
-roughly $50–80/month even when idle. Cheap levers: destroy the secondary stack
-between DR demos, or use Fargate Spot.
+- **Portal:** sign in at `/admin` (Cognito), edit sections, publish — changes
+  are live immediately.
+- **Bulk/seed:** edit `scripts/seed_content.py` and run it with `--force`.
 
-## Roadmap
+## Notes
 
-- [ ] Register a domain and set `domain_name` in Terraform (enables Route 53 failover + HTTPS via ACM)
-- [ ] GitHub Actions CI/CD: build → push to ECR → `terraform apply` → S3 sync
-- [ ] Move profile data from in-memory to DynamoDB (repository interface is already in place)
-- [ ] Remote Terraform state (S3 backend + state locking)
-- [ ] CloudWatch alarms + a real DR-failover runbook (great interview material)
+- Cost is roughly **$6–7/month** (WAF is the largest line item; Lambda,
+  DynamoDB, API Gateway, and CloudFront are near-zero at portfolio traffic).
+- The git history contains an earlier multi-region ECS/Fargate + Spring Boot +
+  FastAPI iteration, retired in favor of this serverless design.

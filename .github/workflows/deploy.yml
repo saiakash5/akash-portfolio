@@ -3,6 +3,7 @@ name: Deploy
 on:
   push:
     branches: [main]
+    paths: ["frontend/**", ".github/workflows/deploy.yml"]
   workflow_dispatch: {}
 
 permissions:
@@ -11,10 +12,12 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REGISTRY: 871716941934.dkr.ecr.us-east-1.amazonaws.com
   S3_BUCKET: akash-portfolio-frontend-20260615205418964000000002
   CF_DISTRIBUTION: E2UXJQE0WRIOZP
 
+# Frontend-only deploy. Backend is fully serverless (Lambda/API Gateway/
+# DynamoDB) and deployed via `terraform apply` — Lambda code changes go out
+# with Terraform, not here.
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -27,30 +30,7 @@ jobs:
           role-to-assume: arn:aws:iam::871716941934:role/akash-portfolio-github-actions
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Log in to ECR
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push profile-service
-        run: |
-          IMAGE=$ECR_REGISTRY/akash-portfolio/profile-service
-          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest services/profile-service
-          docker push $IMAGE --all-tags
-
-      - name: Build and push contact-service
-        run: |
-          IMAGE=$ECR_REGISTRY/akash-portfolio/contact-service
-          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest services/contact-service
-          docker push $IMAGE --all-tags
-
-      - name: Redeploy ECS services (primary region)
-        run: |
-          aws ecs update-service --cluster portfolio-primary \
-            --service portfolio-primary-profile --force-new-deployment --no-cli-pager --query service.serviceName
-          aws ecs update-service --cluster portfolio-primary \
-            --service portfolio-primary-contact --force-new-deployment --no-cli-pager --query service.serviceName
-
-      - name: Build frontend
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
@@ -63,8 +43,3 @@ jobs:
         run: |
           aws s3 sync frontend/dist s3://$S3_BUCKET --delete
           aws cloudfront create-invalidation --distribution-id $CF_DISTRIBUTION --paths "/*" --no-cli-pager --query Invalidation.Status
-
-      - name: Wait for ECS to stabilize
-        run: |
-          aws ecs wait services-stable --cluster portfolio-primary \
-            --services portfolio-primary-profile portfolio-primary-contact

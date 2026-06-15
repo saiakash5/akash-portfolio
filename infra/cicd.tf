@@ -37,38 +37,6 @@ resource "aws_iam_role_policy" "github_actions" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "EcrAuth"
-        Effect   = "Allow"
-        Action   = "ecr:GetAuthorizationToken"
-        Resource = "*"
-      },
-      {
-        Sid    = "EcrPush"
-        Effect = "Allow"
-        Action = [
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:CompleteLayerUpload",
-          "ecr:InitiateLayerUpload",
-          "ecr:PutImage",
-          "ecr:UploadLayerPart",
-          "ecr:BatchGetImage",
-          "ecr:GetDownloadUrlForLayer"
-        ]
-        Resource = [
-          aws_ecr_repository.profile.arn,
-          aws_ecr_repository.contact.arn
-        ]
-      },
-      {
-        Sid    = "EcsRedeploy"
-        Effect = "Allow"
-        Action = ["ecs:UpdateService", "ecs:DescribeServices"]
-        Resource = [
-          "arn:aws:ecs:${var.primary_region}:${data.aws_caller_identity.current.account_id}:service/portfolio-primary/*",
-          "arn:aws:ecs:${var.secondary_region}:${data.aws_caller_identity.current.account_id}:service/portfolio-secondary/*"
-        ]
-      },
-      {
         Sid    = "FrontendSync"
         Effect = "Allow"
         Action = ["s3:ListBucket", "s3:PutObject", "s3:DeleteObject", "s3:GetObject"]

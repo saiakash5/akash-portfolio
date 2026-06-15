@@ -84,13 +84,3 @@ resource "aws_wafv2_web_acl" "frontend" {
     sampled_requests_enabled   = true
   }
 }
-
-# Secret header CloudFront stamps on origin requests. The ALB only accepts
-# /api/contact requests carrying it, so the contact endpoint can't be spammed
-# directly — all writes must pass through CloudFront (and therefore the WAF).
-# /api/profile stays open: it's public read-only data and the Route 53
-# health check (which can't send custom headers) depends on it.
-resource "random_password" "origin_verify" {
-  length  = 32
-  special = false
-}

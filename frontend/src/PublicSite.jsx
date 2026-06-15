@@ -55,8 +55,8 @@ export default function PublicSite() {
         <Contact />
         <footer>
           <p>
-            Built with React · Spring Boot · FastAPI · Lambda · Terraform — content served from
-            DynamoDB.
+            Built with React · AWS Lambda · API Gateway · DynamoDB · Cognito · Terraform — fully
+            serverless.
           </p>
         </footer>
       </main>
