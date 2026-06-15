@@ -90,7 +90,7 @@ SECTIONS = [
                     "description": (
                         "The site you're looking at — a fully serverless AWS platform: React on "
                         "S3 + CloudFront, content served live from DynamoDB via Lambda + API Gateway, "
-                        "a Cognito-secured admin portal, WAF at the edge, all defined in Terraform."
+                        "a Cognito-secured admin portal, all defined in Terraform."
                     ),
                     "tags": ["AWS", "Terraform", "Lambda", "API Gateway", "DynamoDB", "Cognito"],
                     "link": "https://github.com/saiakash5/akash-portfolio",

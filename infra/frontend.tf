@@ -27,7 +27,6 @@ resource "aws_cloudfront_distribution" "frontend" {
   default_root_object = "index.html"
   price_class         = "PriceClass_100" # US/EU edges only — cheapest tier
   aliases             = [var.domain_name, "www.${var.domain_name}"]
-  web_acl_id          = aws_wafv2_web_acl.frontend.arn
 
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
