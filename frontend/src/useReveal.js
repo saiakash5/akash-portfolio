@@ -2,7 +2,8 @@ import { useEffect } from "react";
 
 // Adds a gentle fade-up to every element with class "reveal" as it
 // scrolls into view. Respects prefers-reduced-motion (see index.css).
-export function useReveal() {
+// Pass deps (e.g. [sections]) so it re-scans after async content renders.
+export function useReveal(deps = []) {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -16,7 +17,8 @@ export function useReveal() {
       { threshold: 0.08 }
     );
 
-    document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
+    document.querySelectorAll(".reveal:not(.revealed)").forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
 }

@@ -12,8 +12,8 @@ permissions:
 env:
   AWS_REGION: us-east-1
   ECR_REGISTRY: 871716941934.dkr.ecr.us-east-1.amazonaws.com
-  S3_BUCKET: akash-portfolio-frontend-20260612165153828900000001
-  CF_DISTRIBUTION: EI2XG1XSY296Y
+  S3_BUCKET: akash-portfolio-frontend-20260615205418964000000002
+  CF_DISTRIBUTION: E2UXJQE0WRIOZP
 
 jobs:
   deploy:
